@@ -16,7 +16,7 @@ RUN keytool -genkeypair -alias root -dname "CN=RootCA, OU=RootCertificateAuthori
 # Generate Intermediate CA
 RUN keytool -genkeypair -alias intermediate -dname "CN=IntermediateCA, OU=IntermediateCertificateAuthority, O=ZennoteCertificateAuthority, C=US" -keyalg RSA -keysize 2048 -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD
 # Generate Server Cert
-RUN keytool -genkeypair -alias server -dname "CN=zennote.online, OU=Blog, O=Zennote, C=US" -keyalg RSA -keysize 2048 -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+RUN keytool -genkeypair -alias server -dname "CN=backend.zennote.online, OU=Blog, O=Zennote, C=US" -keyalg RSA -keysize 2048 -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
 # Create a Certificate Signing Request (CSR) for the Intermediate CA using the Root CA
 RUN keytool -certreq -alias intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD | keytool -gencert -alias root -ext san=dns:intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD | keytool -importcert -alias intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD
 # Import the Root Certificate to the keystore with the self signed server certificate
