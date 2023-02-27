@@ -1,0 +1,33 @@
+FROM registry.access.redhat.com/ubi8/openjdk-17:1.14
+
+EXPOSE 8080
+EXPOSE 443
+
+COPY simple-server/target/simple-server-1.0.0-SNAPSHOT-runner.jar /deployments/quarkus-run.jar
+
+USER 185
+ARG KEY_STORE_PASSWORD
+ENV KEY_STORE_PASSWORD=$KEY_STORE_PASSWORD
+ENV KEY_STORE_FILE=/tmp/simple-server.pkcs12
+ENV CA_ROOT=/tmp/.keystore
+
+# Generate Root CA
+RUN keytool -genkeypair -alias root -dname "CN=RootCA, OU=RootCertificateAuthority, O=ZennoteCertificateAuthority, C=US" -keyalg RSA -keysize 2048 -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD
+# Generate Intermediate CA
+RUN keytool -genkeypair -alias intermediate -dname "CN=IntermediateCA, OU=IntermediateCertificateAuthority, O=ZennoteCertificateAuthority, C=US" -keyalg RSA -keysize 2048 -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD
+# Generate Server Cert
+RUN keytool -genkeypair -alias server -dname "CN=zennote.online, OU=Blog, O=Zennote, C=US" -keyalg RSA -keysize 2048 -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+# Create a Certificate Signing Request (CSR) for the Intermediate CA using the Root CA
+RUN keytool -certreq -alias intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD | keytool -gencert -alias root -ext san=dns:intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD | keytool -importcert -alias intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD
+# Import the Root Certificate to the keystore with the self signed server certificate
+RUN keytool -export -alias root -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD | keytool -import -alias root -noprompt -trustcacerts -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+# Create a Certificate Signing Request (CSR) for the Server Certificate using the Intermediate CA
+RUN keytool -certreq -alias server -keyalg RSA -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD | keytool -gencert -alias intermediate -keyalg RSA -keystore $CA_ROOT -storepass $KEY_STORE_PASSWORD | keytool -importcert -alias server -keyalg RSA -noprompt -trustcacerts -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+# We don't need the Root Certificate in the Server keystore
+RUN keytool -delete -alias root -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+# Now, we need to create a truststore for the clients
+
+
+ENV QUARKUS_PROFILE=ssl
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Djavax.net.debug=all"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
