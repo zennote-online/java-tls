@@ -1,8 +1,10 @@
-FROM registry.access.redhat.com/ubi8/openjdk-17:1.14
+FROM openjdk:21-slim-buster
 
 COPY simple-client/target/simple-client-1.0.0-SNAPSHOT-runner.jar /deployments/quarkus-run.jar
+COPY simple-client/src/main/docker/startup_script.sh startup_script.sh
+RUN chmod 777 startup_script.sh
 
-USER 185
+ARG TRUST_STORE_PASSWORD
+ENV TRUST_STORE_PASSWORD=$TRUST_STORE_PASSWORD
 
-ENV JAVA_OPTS="-Djava.util.logging.manager=org.jboss.logmanager.LogManager"
-ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+ENTRYPOINT ./startup_script.sh
