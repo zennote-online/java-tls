@@ -1,7 +1,6 @@
 package online.zennote.java_tls.simple_client;
 
 import io.quarkus.runtime.Startup;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import javax.annotation.PostConstruct;
@@ -13,17 +12,17 @@ import java.util.concurrent.TimeUnit;
 
 @ApplicationScoped
 @Startup
-public class SimpleClientService {
+public class ZennoteSimpleClientService {
 
-    private static final Logger LOGGER = Logger.getLogger(SimpleClientService.class);
+    private static final Logger LOGGER = Logger.getLogger(ZennoteSimpleClientService.class);
 
-    private final GreetingClient greetingClient;
+    private final ZennoteSimpleClient zennoteSimpleClient;
     private final ScheduledExecutorService scheduledExecutorService;
 
     @Inject
-    public SimpleClientService(@RestClient final GreetingClient greetingClient) {
+    public ZennoteSimpleClientService(final ZennoteSimpleClient zennoteSimpleClient) {
         LOGGER.info("Creating SimpleClientService");
-        this.greetingClient = greetingClient;
+        this.zennoteSimpleClient = zennoteSimpleClient;
         this.scheduledExecutorService = Executors.newScheduledThreadPool(1);
     }
 
@@ -33,7 +32,11 @@ public class SimpleClientService {
         this.scheduledExecutorService.scheduleAtFixedRate(
                 () -> {
                     LOGGER.info("Running getHello");
-                    LOGGER.info(this.greetingClient.getHello());
+                    try {
+                        LOGGER.info(this.zennoteSimpleClient.getHello());
+                    } catch (Exception ex) {
+                        LOGGER.error("Failed to get hello", ex);
+                    }
                     LOGGER.info("getHello executed");
                 }, 5, 5, TimeUnit.SECONDS);
     }
