@@ -17,8 +17,8 @@ public class SimpleClientService {
 
     private static final Logger LOGGER = Logger.getLogger(SimpleClientService.class);
 
-    private GreetingClient greetingClient;
-    private ScheduledExecutorService scheduledExecutorService;
+    private final GreetingClient greetingClient;
+    private final ScheduledExecutorService scheduledExecutorService;
 
     @Inject
     public SimpleClientService(@RestClient final GreetingClient greetingClient) {
