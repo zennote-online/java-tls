@@ -1,0 +1,34 @@
+FROM registry.access.redhat.com/ubi8/openjdk-17:1.14
+
+EXPOSE 8080
+EXPOSE 443
+
+COPY simple-server/target/simple-server-1.0.0-SNAPSHOT-runner.jar /deployments/quarkus-run.jar
+RUN mkdir /tmp/ca
+
+USER 185
+ARG KEY_STORE_PASSWORD
+ENV KEY_STORE_PASSWORD=$KEY_STORE_PASSWORD
+ENV KEY_STORE_FILE=/tmp/simple-server.pkcs12
+ENV CA_ROOT_FILE=/tmp/.keystore
+ENV CA_PEM_FILE=/tmp/ca/zennote.crt.pem
+ENV SIGNED_SERVER_CERT=/tmp/signed_server_cert.crt
+
+# Generate Root CA
+RUN keytool -genkeypair -alias ca -dname "CN=RootCA, OU=RootCertificateAuthority, O=ZennoteCertificateAuthority, C=US" -ext KeyUsage=digitalSignature,keyCertSign -ext BasicConstraints=ca:true,PathLen:3 -keyalg RSA -keysize 2048 -keystore $CA_ROOT_FILE -storepass $KEY_STORE_PASSWORD
+# Generate Server Cert
+RUN keytool -genkeypair -alias server -dname "CN=backend.zennote.online, OU=Blog, O=Zennote, C=US" -ext KeyUsage=digitalSignature,keyEncipherment,keyAgreement -ext ExtendedKeyUsage=serverAuth,clientAuth -keyalg RSA -keysize 2048 -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+# Create a Certificate Signing Request (CSR) for the Server Certificate and sign with CA
+RUN keytool -certreq -alias server -keyalg RSA -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD | keytool -gencert -alias ca -keyalg RSA -keystore $CA_ROOT_FILE -storepass $KEY_STORE_PASSWORD -ext KeyUsage=digitalSignature,dataEncipherment,keyEncipherment,keyAgreement -ext ExtendedKeyUsage=serverAuth -rfc -outfile $SIGNED_SERVER_CERT
+# Export CA certificate
+RUN keytool -exportcert -rfc -alias ca -keystore $CA_ROOT_FILE -storepass $KEY_STORE_PASSWORD -file $CA_PEM_FILE
+# Import the CA Certificate to the keystore with the self signed server certificate
+RUN keytool -exportcert -alias ca -keystore $CA_ROOT_FILE -storepass $KEY_STORE_PASSWORD -rfc | keytool -importcert -alias root -noprompt -trustcacerts -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+# Import signed server certificate
+RUN keytool -importcert -alias server -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD -file $SIGNED_SERVER_CERT
+# We don't need the Root Certificate in the Server keystore
+RUN keytool -delete -alias root -keystore $KEY_STORE_FILE -storepass $KEY_STORE_PASSWORD
+
+ENV QUARKUS_PROFILE=ssl
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"

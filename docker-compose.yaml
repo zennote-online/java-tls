@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  client:
+    image: zennote.simple-client:latest
+    depends_on:
+      - backend.zennote.online
+    volumes:
+      - truststore:/tmp/ca
+  backend.zennote.online:
+    image: zennote.simple-server:ca
+    ports:
+      - "8080:8080"
+      - "443:443"
+    volumes:
+      - truststore:/tmp/ca
+  curl:
+    image: curlimages/curl
+    stdin_open: true
+    tty: true
+    entrypoint: /bin/sh
+    volumes:
+      - truststore:/tmp/ca
+      - /tmp:/tmp/keyfiles
+volumes:
+  truststore:
