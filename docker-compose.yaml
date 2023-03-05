@@ -13,5 +13,13 @@ services:
       - "443:443"
     volumes:
       - truststore:/tmp/ca
+  curl:
+    image: curlimages/curl
+    stdin_open: true
+    tty: true
+    entrypoint: /bin/sh
+    volumes:
+      - truststore:/tmp/ca
+      - /tmp:/tmp/keyfiles
 volumes:
   truststore:
